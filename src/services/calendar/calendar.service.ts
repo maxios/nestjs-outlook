@@ -598,6 +598,85 @@ export class CalendarService {
     }
   }
 
+  /**
+   * Import historic calendar events for a user
+   * @param externalUserId - External user ID
+   * @param startDate - Start date for the import range (defaults to 5 years ago)
+   * @param endDate - End date for the import range (defaults to 5 years from now)
+   * @returns Array of imported events
+   */
+  async importHistoricEvents(
+    externalUserId: string,
+    startDate?: Date,
+    endDate?: Date
+  ): Promise<Event[]> {
+    try {
+      this.logger.log(
+        `Starting historic calendar import for user ${externalUserId}`
+      );
+
+      // Default to 5 years in the past and 5 years in the future
+      const start = startDate || new Date(Date.now() - 5 * 365 * 24 * 60 * 60 * 1000);
+      const end = endDate || new Date(Date.now() + 5 * 365 * 24 * 60 * 60 * 1000);
+
+      const client = await this.getAuthenticatedClient(externalUserId);
+
+      // Build the request URL with date filters
+      const requestUrl = `/me/events?$filter=start/dateTime ge '${start.toISOString()}' and end/dateTime le '${end.toISOString()}'&$orderby=start/dateTime`;
+
+      const allEvents: Event[] = [];
+      let nextLink: string | undefined = requestUrl;
+
+      // Fetch all pages of historic events
+      while (nextLink) {
+        this.logger.debug(`Fetching events page: ${nextLink}`);
+
+        const response = await this.deltaSyncService["retryWithBackoff"](
+          () => client.api(nextLink!).get()
+        );
+
+        allEvents.push(...(response.value as Event[]));
+
+        nextLink = response["@odata.nextLink"];
+
+        // Small delay between pages to avoid rate limiting
+        if (nextLink) {
+          await this.delay(200);
+        }
+      }
+
+      this.logger.log(
+        `Imported ${allEvents.length} historic events for user ${externalUserId}`
+      );
+
+      // Emit events for each imported event to trigger system processing
+      for (const event of allEvents) {
+        const resourceData: OutlookResourceData = {
+          id: event.id || "",
+          userId: Number(externalUserId),
+          subscriptionId: "", // No subscription for historic import
+          resource: `/me/events/${event.id}`,
+          changeType: "created",
+          data: event as Record<string, unknown>,
+        };
+        this.eventEmitter.emit(OutlookEventTypes.EVENT_CREATED, resourceData);
+      }
+
+      return allEvents;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      this.logger.error(
+        `Error importing historic events for user ${externalUserId}: ${errorMessage}`
+      );
+      throw error;
+    }
+  }
+
+  private async delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
   async getAuthenticatedClient(externalUserId: string): Promise<Client> {
     const accessToken =
       await this.microsoftAuthService.getUserAccessTokenByExternalUserId(

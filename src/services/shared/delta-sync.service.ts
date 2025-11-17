@@ -53,16 +53,50 @@ export class DeltaSyncService {
   ): Promise<T> {
     try {
       return await operation();
-    } catch (error) {
+    } catch (error: any) {
       if (retryCount >= this.MAX_RETRIES) {
         throw error;
       }
 
-      // Calculate exponential backoff delay
+      // Handle 429 Too Many Requests with Retry-After header
+      if (error?.statusCode === 429 || error?.code === 'TooManyRequests') {
+        const retryAfter = this.getRetryAfterSeconds(error);
+        if (retryAfter) {
+          this.logger.warn(
+            `Rate limited (429). Waiting ${retryAfter}s before retry ${retryCount + 1}/${this.MAX_RETRIES}`
+          );
+          await this.delay(retryAfter * 1000);
+          return this.retryWithBackoff(operation, retryCount + 1);
+        }
+      }
+
+      // Calculate exponential backoff delay for other errors
       const delayMs = this.RETRY_DELAY_MS * Math.pow(2, retryCount);
+      this.logger.warn(
+        `Request failed, retrying in ${delayMs}ms (attempt ${retryCount + 1}/${this.MAX_RETRIES})`
+      );
       await this.delay(delayMs);
       return this.retryWithBackoff(operation, retryCount + 1);
     }
+  }
+
+  /**
+   * Extract Retry-After value from error response
+   * @param error Error object from Graph API
+   * @returns Number of seconds to wait, or null
+   */
+  private getRetryAfterSeconds(error: any): number | null {
+    // Check for Retry-After in response headers
+    const retryAfterHeader =
+      error?.response?.headers?.['retry-after'] ||
+      error?.headers?.['retry-after'];
+
+    if (retryAfterHeader) {
+      const seconds = parseInt(retryAfterHeader, 10);
+      return isNaN(seconds) ? null : seconds;
+    }
+
+    return null;
   }
 
   private handleDeltaResponse<T extends DeltaItem>(
@@ -151,13 +185,22 @@ export class DeltaSyncService {
     // Fetch all pages of changes
     while (response["@odata.nextLink"]) {
       const nextLink = response["@odata.nextLink"];
-      response = (await client.api(nextLink).get()) as DeltaResponse<T>;
+
+      // Fetch page with retry logic
+      response = await this.retryWithBackoff(
+        () => client.api(nextLink).get() as Promise<DeltaResponse<T>>
+      );
+
       this.handleDeltaResponse(response, Number(userId), ResourceType.CALENDAR);
+
+      // Fetch individual event details with retry logic
       const eventDetails = await Promise.all(
         response.value.map((item) =>
           item["@removed"]
             ? Promise.resolve(item)
-            : (client.api(`/me/events/${item.id}`).get() as Promise<T>)
+            : this.retryWithBackoff(
+                () => client.api(`/me/events/${item.id}`).get() as Promise<T>
+              )
         )
       );
       allItems.push(...eventDetails);
