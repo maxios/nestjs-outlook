@@ -1,5 +1,41 @@
 # Changelog
 
+## [5.0.0](https://github.com/maxios/nestjs-outlook/compare/v4.6.0...v5.0.0) (2025-12-24)
+
+
+### ⚠ BREAKING CHANGES
+
+* **auth:** centralize token management with MicrosoftUser entity
+* Add support for sending emails
+* **types:** Changed import source for Microsoft Graph types from '@microsoft/microsoft-graph-types' to local types. While functionally identical (re-exports), this change breaks type compatibility for library consumers who directly use these types.
+
+### Features
+
+* add delete event ([#30](https://github.com/maxios/nestjs-outlook/issues/30)) ([7c0527a](https://github.com/maxios/nestjs-outlook/commit/7c0527a33cdb33c1df9ec6b06a3e14e43e41664f))
+* Add support for sending emails ([cd66ecd](https://github.com/maxios/nestjs-outlook/commit/cd66ecd3cc05536c54b724c68ec73566b09cc4d0))
+* added sorting and delta sync ([#23](https://github.com/maxios/nestjs-outlook/issues/23)) ([2eac017](https://github.com/maxios/nestjs-outlook/commit/2eac0176a14784b162fabccbe1462bbac38e9b0f))
+* **auth:** centralize token management with MicrosoftUser entity ([25a538d](https://github.com/maxios/nestjs-outlook/commit/25a538d68b0d6ac522e91e47bcb20d76a8ae8217))
+* **Calendar:** import calendar events in streamable chunks ([#39](https://github.com/maxios/nestjs-outlook/issues/39)) ([6c3d865](https://github.com/maxios/nestjs-outlook/commit/6c3d865df0590c7a9c434048dc45ce1aec82848d))
+* Implement customizable permission scopes ([05a60b3](https://github.com/maxios/nestjs-outlook/commit/05a60b367d9bd625928e959bac42aa255e335249))
+* initial working module ([64ac682](https://github.com/maxios/nestjs-outlook/commit/64ac6820aa3ba8143bd9919db1d837992e999ec9))
+* Migrate publishing to NPM to use OIDC ([e77198d](https://github.com/maxios/nestjs-outlook/commit/e77198d9aec3ca0530cfb154263bcbfc8d94fd99))
+* Notify when emails are created/updated/deleted ([eacdfba](https://github.com/maxios/nestjs-outlook/commit/eacdfba7d5667c848a576d043107e2a3962fc121))
+* revoke Refresh Token ([#48](https://github.com/maxios/nestjs-outlook/issues/48)) ([4f9e2c6](https://github.com/maxios/nestjs-outlook/commit/4f9e2c6cdc9c5da33c2307c8e686cb1ea12442dc))
+* **types:** replace Microsoft Graph types with local re-exports ([2110d39](https://github.com/maxios/nestjs-outlook/commit/2110d39d601820bbece827aab262ee157e210f5a))
+* use delta sync as a unified source for importing events on first and second connection attempt ([#50](https://github.com/maxios/nestjs-outlook/issues/50)) ([20786f6](https://github.com/maxios/nestjs-outlook/commit/20786f6c30420ac717aae990c69a7770649cb017))
+
+
+### Bug Fixes
+
+* create subscription only if there's a READ permission ([#46](https://github.com/maxios/nestjs-outlook/issues/46)) ([ad7fb76](https://github.com/maxios/nestjs-outlook/commit/ad7fb76b0d348381194a6ef2cab1d7a8c503f6d6))
+* **disconnect:** set isActive = false after deleting subscription ([#36](https://github.com/maxios/nestjs-outlook/issues/36)) ([05dfba3](https://github.com/maxios/nestjs-outlook/commit/05dfba33cd0d0bf3075f21ebc78b6928ce8176f1))
+* external-user-id ([#33](https://github.com/maxios/nestjs-outlook/issues/33)) ([2914f3a](https://github.com/maxios/nestjs-outlook/commit/2914f3a4d4cb29fbcb2d0ca1fc49b8933a076efc))
+* Fix basePath in webhook notifications ([f1b3ff7](https://github.com/maxios/nestjs-outlook/commit/f1b3ff7ae23d60543922911b06eb9c1114273268))
+* Fix webhooks sync ([#28](https://github.com/maxios/nestjs-outlook/issues/28)) ([c769ebd](https://github.com/maxios/nestjs-outlook/commit/c769ebd29e629f4b738a48344547745ff203312b))
+* Make basepath mandatory ([47e4ec9](https://github.com/maxios/nestjs-outlook/commit/47e4ec97fba1d8ac09c88202d474bfac60a99baf))
+* outlook sends notification with empty resources ([#51](https://github.com/maxios/nestjs-outlook/issues/51)) ([1e2aeb4](https://github.com/maxios/nestjs-outlook/commit/1e2aeb43a36d803902bb77d84ee50be7cb985b0f))
+* Remove unncessary defaults ([dea21c4](https://github.com/maxios/nestjs-outlook/commit/dea21c4e558f12988958bfae1ee577937bdeb558))
+
 ## [4.6.0](https://github.com/checkfirst-ltd/nestjs-outlook/compare/v4.5.1...v4.6.0) (2025-12-22)
 
 
