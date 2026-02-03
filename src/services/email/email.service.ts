@@ -13,6 +13,7 @@ import { MicrosoftUser } from '../../entities/microsoft-user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UserIdConverterService } from '../shared/user-id-converter.service';
+import { MicrosoftSubscriptionService } from '../subscription/microsoft-subscription.service';
 
 @Injectable()
 export class EmailService {
@@ -28,6 +29,7 @@ export class EmailService {
     @InjectRepository(MicrosoftUser)
     private readonly microsoftUserRepository: Repository<MicrosoftUser>,
     private readonly userIdConverter: UserIdConverterService,
+    private readonly subscriptionService: MicrosoftSubscriptionService,
   ) {}
 
   /**
@@ -91,52 +93,33 @@ export class EmailService {
       const basePath = this.microsoftConfig.basePath;
       const basePathUrl = basePath ? `${appUrl}/${basePath}` : appUrl;
 
-      // Create subscription payload with proper URL encoding
+      // Create subscription using centralized service
       const notificationUrl = `${basePathUrl}/email/webhook`;
-
-      // Create subscription payload
-      const subscriptionData = {
-        changeType: 'created,updated,deleted',
-        notificationUrl,
-        // Add lifecycleNotificationUrl for increased reliability
-        lifecycleNotificationUrl: notificationUrl,
-        resource: '/me/messages',
-        expirationDateTime: expirationDateTime.toISOString(),
-        clientState: `user_${internalUserId}_${Math.random().toString(36).substring(2, 15)}`,
-      };
 
       this.logger.debug(`Creating email webhook subscription with notificationUrl: ${notificationUrl}`);
 
-      this.logger.debug(`Subscription data: ${JSON.stringify(subscriptionData)}`);
-      
-      // Create the subscription with Microsoft Graph API
-      const response = await axios.post<Subscription>(
-        'https://graph.microsoft.com/v1.0/subscriptions',
-        subscriptionData,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
-        },
-      );
-
-      this.logger.log(`Created email webhook subscription ${response.data.id || 'unknown'} for user ${internalUserId}`);
+      const response = await this.subscriptionService.createSubscription({
+        accessToken,
+        resource: '/me/messages',
+        notificationUrl,
+        userId: internalUserId,
+        expirationDateTime,
+      });
 
       // Save the subscription to the database
       await this.webhookSubscriptionRepository.saveSubscription({
-        subscriptionId: response.data.id,
+        subscriptionId: response.id,
         userId: internalUserId,
-        resource: response.data.resource,
-        changeType: response.data.changeType,
-        clientState: response.data.clientState || '',
-        notificationUrl: response.data.notificationUrl,
-        expirationDateTime: response.data.expirationDateTime ? new Date(response.data.expirationDateTime) : new Date(),
+        resource: response.resource,
+        changeType: response.changeType || 'created,updated,deleted',
+        clientState: response.clientState || '',
+        notificationUrl: response.notificationUrl || notificationUrl,
+        expirationDateTime: response.expirationDateTime ? new Date(response.expirationDateTime) : new Date(),
       });
 
       this.logger.debug(`Stored subscription`);
 
-      return response.data;
+      return response;
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`Failed to create email webhook subscription: ${errorMessage}`);

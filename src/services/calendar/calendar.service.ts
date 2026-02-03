@@ -279,62 +279,40 @@ export class CalendarService {
       const basePath = this.microsoftConfig.basePath;
       const basePathUrl = basePath ? `${appUrl}/${basePath}` : appUrl;
 
-      // Create subscription payload with proper URL encoding
+      // Create subscription using centralized service
       const notificationUrl = `${basePathUrl}/calendar/webhook`;
-
-      // Create subscription payload
-      const subscriptionData = {
-        changeType: "created,updated,deleted",
-        notificationUrl,
-        // Add lifecycleNotificationUrl for increased reliability
-        lifecycleNotificationUrl: notificationUrl,
-        resource: "/me/events",
-        expirationDateTime: expirationDateTime.toISOString(),
-        clientState: `user_${internalUserId}_${Math.random().toString(36).substring(2, 15)}`,
-      };
 
       this.logger.log(
         `[${correlationId}] Creating webhook subscription with notificationUrl: ${notificationUrl}`
       );
 
-      this.logger.debug(
-        `[${correlationId}] Subscription data: ${JSON.stringify(subscriptionData)}`
-      );
-      // Create the subscription with Microsoft Graph API
-      this.logger.log(`[${correlationId}] Sending POST request to Microsoft Graph API`);
-      const response = await axios.post<Subscription>(
-        "https://graph.microsoft.com/v1.0/subscriptions",
-        subscriptionData,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      this.logger.log(
-        `[${correlationId}] Created webhook subscription ${response.data.id || "unknown"} for user ${internalUserId}`
-      );
+      const response = await this.subscriptionService.createSubscription({
+        accessToken,
+        resource: "/me/events",
+        notificationUrl,
+        userId: internalUserId,
+        expirationDateTime,
+        correlationId,
+      });
 
       // Save the subscription to the database
       this.logger.log(`[${correlationId}] Saving subscription to database (internalUserId: ${internalUserId}, externalUserId: ${externalUserId})`);
       await this.webhookSubscriptionRepository.saveSubscription({
-        subscriptionId: response.data.id,
+        subscriptionId: response.id,
         userId: internalUserId,
-        resource: response.data.resource,
-        changeType: response.data.changeType,
-        clientState: response.data.clientState || "",
-        notificationUrl: response.data.notificationUrl,
-        expirationDateTime: response.data.expirationDateTime
-          ? new Date(response.data.expirationDateTime)
+        resource: response.resource,
+        changeType: response.changeType || "created,updated,deleted",
+        clientState: response.clientState || "",
+        notificationUrl: response.notificationUrl || notificationUrl,
+        expirationDateTime: response.expirationDateTime
+          ? new Date(response.expirationDateTime)
           : new Date(),
       });
 
       this.logger.log(`[${correlationId}] Successfully stored subscription in database`);
       this.logger.log(`[${correlationId}] Webhook subscription creation completed successfully`);
 
-      return response.data;
+      return response;
     } catch (error) {
       if (axios.isAxiosError(error)) {
         this.logger.error(

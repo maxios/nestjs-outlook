@@ -1,42 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
-
-/**
- * Microsoft Graph API subscription structure
- */
-export interface MicrosoftSubscription {
-  id: string;
-  resource: string;
-  changeType?: string;
-  clientState?: string;
-  notificationUrl?: string;
-  expirationDateTime?: string;
-  creatorId?: string;
-}
-
-/**
- * Filter function for subscriptions
- */
-export type SubscriptionFilter = (subscription: MicrosoftSubscription) => boolean;
-
-/**
- * Options for subscription cleanup
- */
-export interface SubscriptionCleanupOptions {
-  accessToken: string;
-  filter?: SubscriptionFilter;
-}
-
-/**
- * Result of subscription cleanup operation
- */
-export interface SubscriptionCleanupResult {
-  totalFound: number;
-  successfullyDeleted: number;
-  failedToDelete: number;
-  deletedSubscriptionIds: string[];
-  errors: Array<{ subscriptionId: string; error: string }>;
-}
+import { CreateSubscriptionOptions, MicrosoftSubscription, SubscriptionCleanupOptions, SubscriptionCleanupResult, SubscriptionFilter } from './types';
 
 /**
  * Centralized service for managing Microsoft Graph API subscriptions
@@ -48,6 +12,52 @@ export class MicrosoftSubscriptionService {
   private readonly logger = new Logger(MicrosoftSubscriptionService.name);
   private readonly graphApiBaseUrl = 'https://graph.microsoft.com/v1.0';
   private readonly msAuthUrl = 'https://login.microsoftonline.com/common/oauth2/v2.0';
+
+  /**
+   * Create a new webhook subscription
+   * @param options - Subscription creation options
+   * @returns Created subscription details
+   */
+  async createSubscription(options: CreateSubscriptionOptions): Promise<MicrosoftSubscription> {
+    const { accessToken, resource, notificationUrl, userId, expirationDateTime, correlationId } = options;
+    const logPrefix = correlationId ? `[${correlationId}]` : '';
+
+    try {
+      // Generate unique clientState for validation
+      const clientState = `user_${userId}_${Math.random().toString(36).substring(2, 15)}`;
+
+      const subscriptionData = {
+        changeType: 'created,updated,deleted',
+        notificationUrl,
+        lifecycleNotificationUrl: notificationUrl,
+        resource,
+        expirationDateTime: expirationDateTime.toISOString(),
+        clientState,
+      };
+
+      this.logger.log(`${logPrefix} Creating subscription for resource: ${resource}`);
+      this.logger.debug(`${logPrefix} Subscription data: ${JSON.stringify(subscriptionData)}`);
+
+      const response = await axios.post<MicrosoftSubscription>(
+        `${this.graphApiBaseUrl}/subscriptions`,
+        subscriptionData,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 10000,
+        },
+      );
+
+      this.logger.log(`${logPrefix} ✅ Created subscription ${response.data.id} for user ${userId}`);
+      return response.data;
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : JSON.stringify(error);
+      this.logger.error(`${logPrefix} ❌ Failed to create subscription: ${message}`);
+      throw new Error(`Failed to create subscription: ${message}`);
+    }
+  }
 
   /**
    * Get all active subscriptions from Microsoft Graph API
@@ -64,9 +74,11 @@ export class MicrosoftSubscriptionService {
         timeout: 10000,
       });
 
-      return response.data.value || [];
-    } catch (error: any) {
-      this.logger.warn(`Failed to get subscriptions from Microsoft: ${error.message}`);
+      // Unwrap response: always an array, value is required by spec
+      return (response.data as { value: MicrosoftSubscription[] }).value;
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : JSON.stringify(error);
+      this.logger.warn(`Failed to get subscriptions from Microsoft: ${message}`);
       return [];
     }
   }
@@ -114,11 +126,13 @@ export class MicrosoftSubscriptionService {
         timeout: 10000,
       });
       this.logger.log(`✅ Deleted subscription ${subscriptionId} at Microsoft`);
-    } catch (error: any) {
-      if (error.response?.status === 404) {
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
         this.logger.log(`Subscription ${subscriptionId} already deleted at Microsoft`);
         return;
       }
+      const message = error instanceof Error ? error.message : JSON.stringify(error);
+      this.logger.warn(`Failed to delete subscription ${subscriptionId}: ${message}`);
       throw error;
     }
   }
@@ -167,21 +181,23 @@ export class MicrosoftSubscriptionService {
           await this.deleteSubscription(subscription.id, accessToken);
           result.successfullyDeleted++;
           result.deletedSubscriptionIds.push(subscription.id);
-        } catch (deleteError: any) {
+        } catch (deleteError: unknown) {
+          const message = deleteError instanceof Error ? deleteError.message : JSON.stringify(deleteError);
           result.failedToDelete++;
           result.errors.push({
             subscriptionId: subscription.id,
-            error: deleteError.message,
+            error: message,
           });
-          this.logger.warn(`⚠️ Failed to delete subscription ${subscription.id}: ${deleteError.message}`);
+          this.logger.warn(`⚠️ Failed to delete subscription ${subscription.id}: ${message}`);
         }
       }
 
       this.logger.log(
         `🗑️ Cleanup completed: ${result.successfullyDeleted} deleted, ${result.failedToDelete} failed`,
       );
-    } catch (error: any) {
-      this.logger.error(`❌ Cleanup operation failed: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : JSON.stringify(error);
+      this.logger.error(`❌ Cleanup operation failed: ${message}`);
       throw error;
     }
 
@@ -246,8 +262,9 @@ export class MicrosoftSubscriptionService {
       );
 
       this.logger.log('✅ Microsoft tokens revoked successfully');
-    } catch (error: any) {
-      this.logger.warn(`⚠️ Failed to revoke Microsoft tokens: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : JSON.stringify(error);
+      this.logger.warn(`⚠️ Failed to revoke Microsoft tokens: ${message}`);
     }
   }
 
