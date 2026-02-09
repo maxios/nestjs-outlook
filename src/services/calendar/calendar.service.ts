@@ -2,7 +2,7 @@ import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { Client } from "@microsoft/microsoft-graph-client";
 import axios from "axios";
-import { Event, Calendar, Subscription, ChangeNotification } from "../../types";
+import { Event, Calendar, Subscription, ChangeNotification, BatchRequestPayload, BatchResponsePayload } from "../../types";
 import { MicrosoftAuthService } from "../auth/microsoft-auth.service";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import { OutlookWebhookSubscriptionRepository } from "../../repositories/outlook-webhook-subscription.repository";
@@ -959,6 +959,125 @@ export class CalendarService {
       return response.data as Event;
     } catch (error) {
       this.logger.error("Error fetching event details:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Fetch multiple events in a single batch request using Microsoft Graph JSON Batch API
+   *
+   * This method uses the Microsoft Graph /$batch endpoint to fetch up to 20 events
+   * in a single HTTP request, significantly improving performance over individual calls.
+   *
+   * @param eventIds - Array of event IDs to fetch (max 20 per Microsoft Graph limit)
+   * @param externalUserId - External user ID
+   * @returns Array of successfully fetched events
+   * @throws Error if batch request fails or access token cannot be obtained
+   *
+   * @example
+   * const events = await calendarService.getEventsBatch(
+   *   ['event-id-1', 'event-id-2', 'event-id-3'],
+   *   'user-123'
+   * );
+   *
+   * @remarks
+   * - Maximum 20 events per batch (Microsoft Graph limit)
+   * - Handles partial failures gracefully (404s are logged, not thrown)
+   * - Only returns events with successful responses (status 200)
+   * - Rate limiting (429) will throw an error
+   * - Uses parallel batch mode for maximum performance
+   */
+  async getEventsBatch(
+    eventIds: string[],
+    externalUserId: string
+  ): Promise<Event[]> {
+    if (eventIds.length === 0) {
+      return [];
+    }
+
+    if (eventIds.length > 20) {
+      this.logger.warn(
+        `getEventsBatch called with ${eventIds.length} events, exceeding Microsoft Graph limit of 20. Only first 20 will be fetched.`
+      );
+    }
+
+    try {
+      // Get a valid access token for this user
+      const accessToken =
+        await this.microsoftAuthService.getUserAccessToken({externalUserId});
+
+      // Build batch request payload (max 20 requests)
+      const batchPayload: BatchRequestPayload = {
+        requests: eventIds.slice(0, 20).map((eventId, index) => ({
+          id: `${index}`,
+          method: 'GET',
+          url: `/me/events/${eventId}`,
+        })),
+      };
+
+      this.logger.debug(
+        `[getEventsBatch] Fetching ${batchPayload.requests.length} events in batch for user ${externalUserId}`
+      );
+
+      // Execute batch request
+      const response = await axios.post<BatchResponsePayload<Event>>(
+        'https://graph.microsoft.com/v1.0/$batch',
+        batchPayload,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      // Process responses
+      const events: Event[] = [];
+      let successCount = 0;
+      let notFoundCount = 0;
+      let errorCount = 0;
+
+      for (const batchResponse of response.data.responses) {
+        const eventId = eventIds[parseInt(batchResponse.id, 10)];
+
+        if (batchResponse.status === 200) {
+          events.push(batchResponse.body);
+          successCount++;
+        } else if (batchResponse.status === 404) {
+          // Event was deleted between drift detection and fetching
+          this.logger.warn(
+            `[getEventsBatch] Event ${eventId} not found (404), likely deleted`
+          );
+          notFoundCount++;
+        } else if (batchResponse.status === 429) {
+          // Rate limited - throw to allow retry logic upstream
+          this.logger.error(
+            `[getEventsBatch] Rate limited (429) for event ${eventId}`
+          );
+          throw new Error(
+            `Rate limited by Microsoft Graph API (status 429) for event ${eventId}`
+          );
+        } else {
+          // Other errors - log and continue
+          this.logger.error(
+            `[getEventsBatch] Failed to fetch event ${eventId}: status ${batchResponse.status}, body: ${JSON.stringify(batchResponse.body)}`
+          );
+          errorCount++;
+        }
+      }
+
+      this.logger.log(
+        `[getEventsBatch] Batch complete for user ${externalUserId}: ` +
+        `success=${successCount}, notFound=${notFoundCount}, errors=${errorCount}`
+      );
+
+      return events;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(
+        `[getEventsBatch] Batch request failed for user ${externalUserId}: ${errorMessage}`
+      );
       throw error;
     }
   }
