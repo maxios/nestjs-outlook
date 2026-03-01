@@ -72,7 +72,7 @@ export async function executeGraphApiCall<T>(
   options: GraphApiExecutorOptions = {}
 ): Promise<T | null> {
   const {
-    maxRetries = 6,
+    maxRetries = 10,
     retryDelayMs = 1000,
     logger = {
       warn: (message: string) => { console.warn(message); },
