@@ -1983,7 +1983,7 @@ export class CalendarService {
   async *getRecurringEventInstances(
     seriesMasterId: string,
     externalUserId: string,
-    options?: { startDate?: Date; endDate?: Date; batchSize?: number }
+    options?: { startDate?: Date; endDate?: Date; batchSize?: number, allSeriesInstances?: boolean }
   ): AsyncGenerator<Event[], void, unknown> {
     const batchSize = options?.batchSize ?? 100;
 
@@ -1992,7 +1992,7 @@ export class CalendarService {
 
       const now = new Date();
       const startDate = options?.startDate ?? new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-      const endDate = options?.endDate ?? new Date(now.getFullYear(), now.getMonth() + 6, now.getDate());
+      const endDate = options?.endDate ?? new Date(now.getFullYear() + 5, now.getMonth(), now.getDate());
 
       // Microsoft Graph API's endDateTime parameter is EXCLUSIVE (only returns occurrences starting BEFORE this time).
       // To include occurrences that happen ON the end date, we add 1 day to make it inclusive.
@@ -2005,8 +2005,13 @@ export class CalendarService {
         `[getRecurringEventInstances] Fetching instances for series ${seriesMasterId} from ${startDate.toISOString()} to ${endDate.toISOString()} (API endDateTime: ${inclusiveEndDate.toISOString()})`
       );
 
-      let nextLink: string | undefined =
-        `/me/events/${seriesMasterId}/instances?startDateTime=${startDate.toISOString()}&endDateTime=${inclusiveEndDate.toISOString()}&$top=${batchSize}`;
+      let nextLink: string | undefined;
+
+      if (options?.allSeriesInstances) {
+        nextLink = `/me/events/${seriesMasterId}/instances?$top=${batchSize}`;
+      } else {
+        nextLink = `/me/events/${seriesMasterId}/instances?startDateTime=${startDate.toISOString()}&endDateTime=${inclusiveEndDate.toISOString()}&$top=${batchSize}`;
+      }
 
       const buffer: Event[] = [];
       let totalFetched = 0;
