@@ -115,6 +115,7 @@ export class RecurrenceService {
         startDate: expansionWindow.startDate,
         endDate: expansionWindow.endDate,
         batchSize: 100,
+        allSeriesInstances: options?.allSeriesInstances ?? false,
       },
     )) {
       for (const event of batch) {
