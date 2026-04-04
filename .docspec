@@ -1,0 +1,67 @@
+dep_version: "0.1.0"
+
+project:
+  name: "@checkfirst/nestjs-outlook"
+  docs_root: docs
+  description: "Documentation for the NestJS module providing Microsoft Outlook integration via Microsoft Graph API"
+
+audiences:
+  - id: consumer-dev
+    name: Consumer Developer
+    goal: Integrate this module into a NestJS application to use Microsoft Outlook calendar, email, and webhook features
+    context: Experienced with NestJS, TypeORM, and TypeScript; unfamiliar with this module's internals or Microsoft Graph API specifics
+    entry_point: docs/tutorials/getting-started.md
+    vocabulary_level: advanced
+    time_budget: scanning
+    success_criteria: Successfully import, configure, and use the module's services to read/write calendar events, send emails, and handle webhooks
+
+  - id: contributor
+    name: Library Contributor
+    goal: Understand the module's architecture and conventions to submit high-quality pull requests
+    context: Strong TypeScript and NestJS skills; familiar with Microsoft Graph API basics; new to this codebase
+    entry_point: docs/explanation/architecture.md
+    vocabulary_level: expert
+    time_budget: deep
+    success_criteria: Able to navigate the codebase, understand service responsibilities, and implement new features or fix bugs following established patterns
+
+  - id: maintainer
+    name: Library Maintainer
+    goal: Release versions, review PRs, and make architectural decisions for the module
+    context: Deep knowledge of NestJS ecosystem and Microsoft Graph API; needs decision context and rationale
+    entry_point: docs/explanation/architecture.md
+    vocabulary_level: expert
+    time_budget: deep
+    success_criteria: Confident in approving changes, understanding design tradeoffs, and planning future development
+
+  - id: ai-agent
+    name: AI Agent
+    goal: Navigate the codebase, understand conventions, and make correct modifications autonomously
+    context: LLM-based coding agent (e.g., Claude Code) with strong TypeScript knowledge but no prior context about this specific codebase; needs fast orientation and precise file-level guidance
+    entry_point: docs/reference/ai-codebase-map.md
+    vocabulary_level: expert
+    time_budget: scanning
+    success_criteria: Can locate the right files to modify, follow established patterns, and produce changes consistent with the codebase conventions without human guidance
+
+architecture:
+  directory_map:
+    tutorials: docs/tutorials
+    how-to: docs/how-to
+    reference: docs/reference
+    explanation: docs/explanation
+    decision-records: docs/decision-records
+  require_index_files: true
+  link_style: relative
+
+governance:
+  ownership_strategy: per-document
+  fallback_owner: "@checkfirst-ltd"
+  review_cadence:
+    tutorial: 90
+    how-to: 60
+    reference: 30
+    explanation: 180
+    decision-record: 365
+
+generation:
+  ai_provider: constrained
+  require_human_review: true

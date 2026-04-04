@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/khaledmaher/.claude/plugins/cache/dep-marketplace/dep/0.1.0/**)"
+    ]
+  }
+}
