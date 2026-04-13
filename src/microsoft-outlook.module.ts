@@ -23,6 +23,7 @@ import { LifecycleEventHandlerService } from "./services/calendar/lifecycle-even
 import { RecurrenceService } from "./services/calendar/recurrence.service";
 import { MicrosoftSubscriptionService } from "./services/subscription/microsoft-subscription.service";
 import { GraphRateLimiterService } from "./services/shared/graph-rate-limiter.service";
+import { OUTLOOK_INSTRUMENTATION } from "./interfaces/instrumentation.interface";
 
 export const { ConfigurableModuleClass, MODULE_OPTIONS_TOKEN } =
   new ConfigurableModuleBuilder<MicrosoftOutlookConfig>()
@@ -50,6 +51,10 @@ export const { ConfigurableModuleClass, MODULE_OPTIONS_TOKEN } =
       provide: MICROSOFT_CONFIG,
       useFactory: (options: MicrosoftOutlookConfig) => options,
       inject: [MODULE_OPTIONS_TOKEN],
+    },
+    {
+      provide: OUTLOOK_INSTRUMENTATION,
+      useValue: null,
     },
     OutlookWebhookSubscriptionRepository,
     MicrosoftCsrfTokenRepository,

@@ -1,4 +1,4 @@
-import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, Logger, Inject, Optional, forwardRef } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import axios from 'axios';
 import { TokenResponse } from '../../interfaces/outlook/token-response.interface';
@@ -17,6 +17,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { FindOptionsWhere, Repository } from 'typeorm';
 import { MicrosoftUser } from '../../entities/microsoft-user.entity';
 import { retryWithBackoff } from '../../utils/retry.util';
+import { OutlookInstrumentation, OUTLOOK_INSTRUMENTATION } from '../../interfaces/instrumentation.interface';
 
 /**
  * Important terminology:
@@ -64,6 +65,8 @@ export class MicrosoftAuthService {
     private readonly csrfTokenRepository: MicrosoftCsrfTokenRepository,
     @InjectRepository(MicrosoftUser)
     private readonly microsoftUserRepository: Repository<MicrosoftUser>,
+    @Optional() @Inject(OUTLOOK_INSTRUMENTATION)
+    private readonly instrumentation: OutlookInstrumentation | null,
   ) {
     console.log('MicrosoftAuthService constructor - microsoftConfig:', {
       clientId: this.microsoftConfig.clientId,
@@ -243,20 +246,24 @@ export class MicrosoftAuthService {
     externalUserId: string,
     scopes: PermissionScope[] = this.defaultScopes
   ): Promise<string> {
+    // Generate a unique trace ID for this auth flow
+    const authTraceId = crypto.randomUUID();
+
     // Generate a secure CSRF token linked to this user
     const csrf = await this.generateCsrfToken(externalUserId);
 
     // Generate state with user ID, CSRF token, and requested scopes
-    const stateObj = {
+    const stateObj: StateObject = {
       userId: externalUserId,
       csrf,
       timestamp: Date.now(),
       requestedScopes: scopes,
+      authTraceId,
     };
     const stateJson = JSON.stringify(stateObj);
     const state = Buffer.from(stateJson).toString('base64').replace(/=/g, ''); // Remove padding '=' characters
 
-    this.logger.debug(`State object: ${JSON.stringify(stateObj)}`);
+    this.logger.debug(`[${authTraceId}] State object: ${JSON.stringify(stateObj)}`);
 
     // Build scope string and encode it
     const scopeString = this.mapToMicrosoftScopes(scopes).join(' ');
@@ -265,10 +272,10 @@ export class MicrosoftAuthService {
     // Ensure proper URI encoding for parameters
     const encodedRedirectUri = encodeURIComponent(this.redirectUri);
 
-    this.logger.debug(`Requested generic scopes: ${scopes.join(', ')}`);
-    this.logger.debug(`Mapped to Microsoft scopes: ${scopeString}`);
-    this.logger.debug(`Redirect URI (raw): ${this.redirectUri}`);
-    this.logger.debug(`Redirect URI (encoded): ${encodedRedirectUri}`);
+    this.logger.debug(`[${authTraceId}] Requested generic scopes: ${scopes.join(', ')}`);
+    this.logger.debug(`[${authTraceId}] Mapped to Microsoft scopes: ${scopeString}`);
+    this.logger.debug(`[${authTraceId}] Redirect URI (raw): ${this.redirectUri}`);
+    this.logger.debug(`[${authTraceId}] Redirect URI (encoded): ${encodedRedirectUri}`);
 
     const authorizeUrl =
       `https://login.microsoftonline.com/${this.tenantId}/oauth2/v2.0/authorize` +
@@ -279,7 +286,12 @@ export class MicrosoftAuthService {
       `&scope=${encodedScope}` +
       `&state=${state}`;
 
-    this.logger.debug(`Final Microsoft login URL: ${authorizeUrl}`);
+    this.logger.debug(`[${authTraceId}] Final Microsoft login URL: ${authorizeUrl}`);
+
+    this.instrumentation?.recordCustomEvent('OAuthLoginInitiated', {
+      userId: externalUserId,
+      authTraceId,
+    });
 
     return authorizeUrl;
   }
@@ -447,14 +459,35 @@ export class MicrosoftAuthService {
       throw new Error('Invalid state parameter - missing user ID');
     }
 
-    const correlationId = `auth-${stateData.userId}-${Date.now()}`;
-    this.logger.log(`[${correlationId}] Starting token exchange for user ${stateData.userId}`);
+    // Use authTraceId from state for cross-request correlation, fallback for old state objects
+    const authTraceId = stateData.authTraceId || `auth-${stateData.userId}-${Date.now()}`;
+    this.logger.log(`[${authTraceId}] Starting token exchange for user ${stateData.userId}`);
+
+    // Set transaction-level attributes and log context for this request
+    this.instrumentation?.addCustomAttributes({
+      userId: stateData.userId,
+      authTraceId,
+    });
+    this.instrumentation?.setLogContext('userId', stateData.userId);
+    this.instrumentation?.setLogContext('authTraceId', authTraceId);
 
     // Validate CSRF token (timestamp validation is now included in validateCsrfToken)
     const csrfError = await this.validateCsrfToken(stateData.csrf, stateData.timestamp);
 
+    // Record CSRF validation result regardless of outcome
+    this.instrumentation?.recordCustomEvent('OAuthCsrfValidation', {
+      userId: stateData.userId,
+      authTraceId,
+      success: csrfError === null,
+      failureReason: csrfError || '',
+    });
+
     if (csrfError) {
-      this.logger.error(`[${correlationId}] CSRF validation failed for user ${String(stateData.userId)}: ${csrfError}`);
+      this.logger.error(`[${authTraceId}] CSRF validation failed for user ${String(stateData.userId)}: ${csrfError}`);
+      this.instrumentation?.noticeError(
+        new Error(`CSRF validation failed: ${csrfError}`),
+        { userId: stateData.userId, authTraceId },
+      );
       throw new Error(`CSRF validation failed: ${csrfError}`);
     }
 
@@ -462,10 +495,11 @@ export class MicrosoftAuthService {
     const scopesToUse = stateData.requestedScopes || this.defaultScopes;
     const scopeString = this.mapToMicrosoftScopes(scopesToUse).join(' ');
 
+    const tokenExchangeStart = Date.now();
     try {
-      this.logger.log(`[${correlationId}] Exchanging code for token with redirect URI: ${this.redirectUri}`);
-      this.logger.log(`[${correlationId}] Using scopes for token exchange (enum): ${scopesToUse.join(', ')}`);
-      this.logger.log(`[${correlationId}] Mapped Microsoft scopes: ${scopeString}`);
+      this.logger.log(`[${authTraceId}] Exchanging code for token with redirect URI: ${this.redirectUri}`);
+      this.logger.log(`[${authTraceId}] Using scopes for token exchange (enum): ${scopesToUse.join(', ')}`);
+      this.logger.log(`[${authTraceId}] Mapped Microsoft scopes: ${scopeString}`);
 
       const postData = new URLSearchParams({
         client_id: this.clientId,
@@ -476,7 +510,7 @@ export class MicrosoftAuthService {
         client_secret: this.clientSecret,
       });
 
-      this.logger.debug(`[${correlationId}] Token request payload: ${postData.toString()}`);
+      this.logger.debug(`[${authTraceId}] Token request payload: ${postData.toString()}`);
 
       const tokenResponse = await axios.post<MicrosoftTokenApiResponse>(
         this.tokenEndpoint,
@@ -488,7 +522,8 @@ export class MicrosoftAuthService {
         },
       );
 
-      this.logger.log(`[${correlationId}] Successfully received token from Microsoft`);
+      const tokenExchangeDurationMs = Date.now() - tokenExchangeStart;
+      this.logger.log(`[${authTraceId}] Successfully received token from Microsoft`);
 
       // Convert the API response to our internal TokenResponse format
       const tokenData: TokenResponse = {
@@ -498,7 +533,7 @@ export class MicrosoftAuthService {
       };
 
       // Save Microsoft user with their tokens and scopes for later use
-      this.logger.log(`[${correlationId}] Saving Microsoft user to database`);
+      this.logger.log(`[${authTraceId}] Saving Microsoft user to database`);
       await this.saveMicrosoftUser(
         stateData.userId,
         tokenData.access_token,
@@ -508,7 +543,7 @@ export class MicrosoftAuthService {
       );
 
       // Emit event that the user has been authenticated
-      this.logger.log(`[${correlationId}] Emitting USER_AUTHENTICATED event`);
+      this.logger.log(`[${authTraceId}] Emitting USER_AUTHENTICATED event`);
       await Promise.resolve(
         this.eventEmitter.emit(OutlookEventTypes.USER_AUTHENTICATED, stateData.userId, {
           externalUserId: stateData.userId,
@@ -517,15 +552,32 @@ export class MicrosoftAuthService {
       );
 
       // Setup subscriptions (both calendar and email)
-      this.logger.log(`[${correlationId}] Starting subscription setup (async)`);
-      await this.setupSubscriptions(stateData.userId, scopesToUse);
+      this.logger.log(`[${authTraceId}] Starting subscription setup (async)`);
+      await this.setupSubscriptions(stateData.userId, scopesToUse, authTraceId);
 
-      this.logger.log(`[${correlationId}] Token exchange completed successfully`);
+      const e2eDurationMs = stateData.timestamp ? Date.now() - stateData.timestamp : -1;
+      this.instrumentation?.recordCustomEvent('OAuthTokenExchange', {
+        userId: stateData.userId,
+        authTraceId,
+        success: true,
+        durationMs: tokenExchangeDurationMs,
+        e2eDurationMs,
+      });
+      this.instrumentation?.recordMetric('Custom/OAuth/TokenExchangeDurationMs', tokenExchangeDurationMs);
+      if (e2eDurationMs > 0) {
+        this.instrumentation?.recordMetric('Custom/OAuth/E2EDurationMs', e2eDurationMs);
+      }
+
+      this.logger.log(`[${authTraceId}] Token exchange completed successfully`);
       return tokenData;
     } catch (error) {
+      const tokenExchangeDurationMs = Date.now() - tokenExchangeStart;
+      const e2eDurationMs = stateData.timestamp ? Date.now() - stateData.timestamp : -1;
+
       if (axios.isAxiosError(error)) {
+        const httpStatus = error.response?.status || 0;
         this.logger.error(
-          `[${correlationId}] Microsoft token exchange failed:`,
+          `[${authTraceId}] Microsoft token exchange failed:`,
           {
             status: error.response?.status,
             statusText: error.response?.statusText,
@@ -534,8 +586,34 @@ export class MicrosoftAuthService {
             message: error.message
           }
         );
+        this.instrumentation?.recordCustomEvent('OAuthTokenExchange', {
+          userId: stateData.userId,
+          authTraceId,
+          success: false,
+          durationMs: tokenExchangeDurationMs,
+          e2eDurationMs,
+          error: error.message,
+          httpStatus,
+        });
+        this.instrumentation?.noticeError(
+          new Error(`OAuth token exchange failed: ${error.message}`),
+          { userId: stateData.userId, authTraceId, httpStatus },
+        );
       } else {
-        this.logger.error(`[${correlationId}] Error exchanging code for token:`, error);
+        this.logger.error(`[${authTraceId}] Error exchanging code for token:`, error);
+        this.instrumentation?.recordCustomEvent('OAuthTokenExchange', {
+          userId: stateData.userId,
+          authTraceId,
+          success: false,
+          durationMs: tokenExchangeDurationMs,
+          e2eDurationMs,
+          error: error instanceof Error ? error.message : 'Unknown error',
+          httpStatus: 0,
+        });
+        this.instrumentation?.noticeError(
+          error instanceof Error ? error : new Error('OAuth token exchange failed'),
+          { userId: stateData.userId, authTraceId },
+        );
       }
       throw new Error('Failed to exchange code for token');
     }
@@ -548,7 +626,8 @@ export class MicrosoftAuthService {
    */
   private async setupSubscriptions(
     externalUserId: string,
-    scopes: PermissionScope[] = this.defaultScopes
+    scopes: PermissionScope[] = this.defaultScopes,
+    authTraceId?: string,
   ): Promise<void> {
     // Check if subscription setup is already in progress for this user
     if (this.subscriptionInProgress.get(externalUserId)) {
@@ -556,7 +635,7 @@ export class MicrosoftAuthService {
       return;
     }
 
-    const correlationId = `auth-${externalUserId}-${Date.now()}`;
+    const correlationId = authTraceId || `auth-${externalUserId}-${Date.now()}`;
     this.logger.log(`[${correlationId}] Starting subscription setup for user ${externalUserId}`);
 
     try {

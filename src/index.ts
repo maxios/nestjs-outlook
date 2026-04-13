@@ -16,6 +16,7 @@ export * from './microsoft-outlook.module';
 export * from './interfaces/outlook/token-response.interface';
 export * from './interfaces/config/outlook-config.interface';
 export * from './interfaces/recurrence.interfaces';
+export * from './interfaces/instrumentation.interface';
 
 // Export enums
 export * from './enums/permission-scope.enum';

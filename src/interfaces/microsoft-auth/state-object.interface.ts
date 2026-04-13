@@ -5,4 +5,5 @@ export interface StateObject {
   csrf: string;
   timestamp: number;
   requestedScopes?: PermissionScope[];
+  authTraceId?: string;
 }
