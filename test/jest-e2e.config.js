@@ -1,0 +1,11 @@
+/* eslint-disable */
+module.exports = {
+  rootDir: '.',
+  testEnvironment: 'node',
+  moduleFileExtensions: ['js', 'json', 'ts'],
+  testRegex: '.*\\.e2e-spec\\.ts$',
+  transform: {
+    '^.+\\.(t|j)s$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.json' }],
+  },
+  testTimeout: 30000,
+};
