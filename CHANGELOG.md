@@ -1,5 +1,97 @@
 # Changelog
 
+## [10.0.0](https://github.com/maxios/nestjs-outlook/compare/v9.0.1...v10.0.0) (2026-06-18)
+
+
+### ⚠ BREAKING CHANGES
+
+* **security:** add clientState validation to webhook endpoints ([#151](https://github.com/maxios/nestjs-outlook/issues/151))
+* subscription passing errors to the host app ([#141](https://github.com/maxios/nestjs-outlook/issues/141))
+* use immutable ids ([#109](https://github.com/maxios/nestjs-outlook/issues/109))
+* return the delta link after dry run of delta changes ([#90](https://github.com/maxios/nestjs-outlook/issues/90))
+* get active subscription by external user id ([#58](https://github.com/maxios/nestjs-outlook/issues/58))
+* **auth:** centralize token management with MicrosoftUser entity
+* Add support for sending emails
+* **types:** Changed import source for Microsoft Graph types from '@microsoft/microsoft-graph-types' to local types. While functionally identical (re-exports), this change breaks type compatibility for library consumers who directly use these types.
+
+### Features
+
+* add delete event ([#30](https://github.com/maxios/nestjs-outlook/issues/30)) ([7c0527a](https://github.com/maxios/nestjs-outlook/commit/7c0527a33cdb33c1df9ec6b06a3e14e43e41664f))
+* Add per-user rate limiter for better control ([#92](https://github.com/maxios/nestjs-outlook/issues/92)) ([919334e](https://github.com/maxios/nestjs-outlook/commit/919334effbc53c02c26882277190357c10979105))
+* add progress tracking in batch streaming ([#101](https://github.com/maxios/nestjs-outlook/issues/101)) ([997a99b](https://github.com/maxios/nestjs-outlook/commit/997a99bee9da15df7a01d4baae6f316871717343))
+* Add support for sending emails ([cd66ecd](https://github.com/maxios/nestjs-outlook/commit/cd66ecd3cc05536c54b724c68ec73566b09cc4d0))
+* add update event to act as upsert based on trasnaction id ([#71](https://github.com/maxios/nestjs-outlook/issues/71)) ([0d5abf0](https://github.com/maxios/nestjs-outlook/commit/0d5abf071e91d585e156b6e2a40b62a480276fc5))
+* add webhook endpoint that pass the notification directly ([#86](https://github.com/maxios/nestjs-outlook/issues/86)) ([8841160](https://github.com/maxios/nestjs-outlook/commit/884116059111f55f660067263799dba88be3fdcc))
+* added sorting and delta sync ([#23](https://github.com/maxios/nestjs-outlook/issues/23)) ([2eac017](https://github.com/maxios/nestjs-outlook/commit/2eac0176a14784b162fabccbe1462bbac38e9b0f))
+* adopt redis client ([#148](https://github.com/maxios/nestjs-outlook/issues/148)) ([7eaae6a](https://github.com/maxios/nestjs-outlook/commit/7eaae6af56f847e3d5525030d78e8f26aaf7a81c))
+* **auth:** centralize token management with MicrosoftUser entity ([25a538d](https://github.com/maxios/nestjs-outlook/commit/25a538d68b0d6ac522e91e47bcb20d76a8ae8217))
+* **Calendar:** expose the event status types for host app usage ([#64](https://github.com/maxios/nestjs-outlook/issues/64)) ([2ceacae](https://github.com/maxios/nestjs-outlook/commit/2ceacae7496ef14f4f04987e2ded3c8e0b6e21a7))
+* **Calendar:** import calendar events in streamable chunks ([#39](https://github.com/maxios/nestjs-outlook/issues/39)) ([6c3d865](https://github.com/maxios/nestjs-outlook/commit/6c3d865df0590c7a9c434048dc45ce1aec82848d))
+* dummy commit for previous PR ([#107](https://github.com/maxios/nestjs-outlook/issues/107)) ([23ff9da](https://github.com/maxios/nestjs-outlook/commit/23ff9da0d81c4efeb5d0b97decffc34388b6a2e0))
+* elevate observability by emitting events ([#117](https://github.com/maxios/nestjs-outlook/issues/117)) ([74bb280](https://github.com/maxios/nestjs-outlook/commit/74bb280e74f2fae8b91dbae7757767fb67614b9a))
+* get active subscription by external user id ([#58](https://github.com/maxios/nestjs-outlook/issues/58)) ([29a7463](https://github.com/maxios/nestjs-outlook/commit/29a7463a57a33f69df0e1b7bf536c2b27dcefc81))
+* get the recurring events through master series id ([#76](https://github.com/maxios/nestjs-outlook/issues/76)) ([d645553](https://github.com/maxios/nestjs-outlook/commit/d6455538d2efe7d858f315a5cc54ab5f4152e794))
+* handle Outlook 503 with Retry-After and circuit breaker ([#132](https://github.com/maxios/nestjs-outlook/issues/132)) ([321c8f1](https://github.com/maxios/nestjs-outlook/commit/321c8f1de47671571954f2737b046bd5d7322c45))
+* handling lifecycle events ([#56](https://github.com/maxios/nestjs-outlook/issues/56)) ([c3c49fb](https://github.com/maxios/nestjs-outlook/commit/c3c49fb4d7ee40b0b1fa3a8c6a0f8ac01d91f937))
+* Implement customizable permission scopes ([05a60b3](https://github.com/maxios/nestjs-outlook/commit/05a60b367d9bd625928e959bac42aa255e335249))
+* initial working module ([64ac682](https://github.com/maxios/nestjs-outlook/commit/64ac6820aa3ba8143bd9919db1d837992e999ec9))
+* Migrate publishing to NPM to use OIDC ([e77198d](https://github.com/maxios/nestjs-outlook/commit/e77198d9aec3ca0530cfb154263bcbfc8d94fd99))
+* Notify when emails are created/updated/deleted ([eacdfba](https://github.com/maxios/nestjs-outlook/commit/eacdfba7d5667c848a576d043107e2a3962fc121))
+* recurring event handlers' ([#88](https://github.com/maxios/nestjs-outlook/issues/88)) ([a93f713](https://github.com/maxios/nestjs-outlook/commit/a93f7132141ca55ea7b409dc3aa7cd0a71b4b12a))
+* return the delta link after dry run of delta changes ([#90](https://github.com/maxios/nestjs-outlook/issues/90)) ([39c785f](https://github.com/maxios/nestjs-outlook/commit/39c785f48d95498c44641e03aed3b6dee742fc92))
+* revoke Refresh Token ([#48](https://github.com/maxios/nestjs-outlook/issues/48)) ([4f9e2c6](https://github.com/maxios/nestjs-outlook/commit/4f9e2c6cdc9c5da33c2307c8e686cb1ea12442dc))
+* **security:** add clientState validation to webhook endpoints ([#151](https://github.com/maxios/nestjs-outlook/issues/151)) ([e3b16f4](https://github.com/maxios/nestjs-outlook/commit/e3b16f47d5f442692f5e8635c4d33b1ea1f62495))
+* send an event when the user refresh token revoked ([#134](https://github.com/maxios/nestjs-outlook/issues/134)) ([cb23921](https://github.com/maxios/nestjs-outlook/commit/cb23921bb8a35745110f677bfbd45ecbb3050eac))
+* Support microsoft graph api batching requests ([#82](https://github.com/maxios/nestjs-outlook/issues/82)) ([d5f0f27](https://github.com/maxios/nestjs-outlook/commit/d5f0f274faa0c57ead72458fe7310204ddb8abf2))
+* **types:** replace Microsoft Graph types with local re-exports ([2110d39](https://github.com/maxios/nestjs-outlook/commit/2110d39d601820bbece827aab262ee157e210f5a))
+* use delta sync as a unified source for importing events on first and second connection attempt ([#50](https://github.com/maxios/nestjs-outlook/issues/50)) ([20786f6](https://github.com/maxios/nestjs-outlook/commit/20786f6c30420ac717aae990c69a7770649cb017))
+* use immutable ids ([#109](https://github.com/maxios/nestjs-outlook/issues/109)) ([b299c87](https://github.com/maxios/nestjs-outlook/commit/b299c87166b0182fe0987676dbc7392a0a79212f))
+
+
+### Bug Fixes
+
+* caching user query for fresh users ([#104](https://github.com/maxios/nestjs-outlook/issues/104)) ([d2402b3](https://github.com/maxios/nestjs-outlook/commit/d2402b3b1082f6f673bdb6a7c2d5c2c068d08e78))
+* constant errors due to orphaned subscription ([#73](https://github.com/maxios/nestjs-outlook/issues/73)) ([be1b097](https://github.com/maxios/nestjs-outlook/commit/be1b097c985b137c3d9d9fbb644dea2092534316))
+* correct user ID handling in webhook and delta sync operations ([#63](https://github.com/maxios/nestjs-outlook/issues/63)) ([442a884](https://github.com/maxios/nestjs-outlook/commit/442a8840101d17908fa4d1a19460d5ac191ac07f))
+* create subscription only if there's a READ permission ([#46](https://github.com/maxios/nestjs-outlook/issues/46)) ([ad7fb76](https://github.com/maxios/nestjs-outlook/commit/ad7fb76b0d348381194a6ef2cab1d7a8c503f6d6))
+* csrf html page as main trigger for csrf expiration ([#137](https://github.com/maxios/nestjs-outlook/issues/137)) ([0161bf9](https://github.com/maxios/nestjs-outlook/commit/0161bf9638608e4d00e35a2be74ec649b0445f87))
+* csrf token handling the error ([#135](https://github.com/maxios/nestjs-outlook/issues/135)) ([b731a98](https://github.com/maxios/nestjs-outlook/commit/b731a98a9dfb88c72f19c64faf953f0e9128a756))
+* delete event user access ([#74](https://github.com/maxios/nestjs-outlook/issues/74)) ([7c946d3](https://github.com/maxios/nestjs-outlook/commit/7c946d31682db67352f6f149ef9f89408e3d3a71))
+* delete event with exponential backoff and observability ([#67](https://github.com/maxios/nestjs-outlook/issues/67)) ([03e35d6](https://github.com/maxios/nestjs-outlook/commit/03e35d667d53f4ca073d16759ce8e2a360415ad7))
+* delete subscription blocked if user is inactive ([#80](https://github.com/maxios/nestjs-outlook/issues/80)) ([c4de1af](https://github.com/maxios/nestjs-outlook/commit/c4de1afa23b1a0f8e30b4314753367bb4be21bcd))
+* Delta Link Expired with error stateNotFound ([#69](https://github.com/maxios/nestjs-outlook/issues/69)) ([0f24e87](https://github.com/maxios/nestjs-outlook/commit/0f24e87901240c34377617ab5ebf8a6746552900))
+* **disconnect:** set isActive = false after deleting subscription ([#36](https://github.com/maxios/nestjs-outlook/issues/36)) ([05dfba3](https://github.com/maxios/nestjs-outlook/commit/05dfba33cd0d0bf3075f21ebc78b6928ce8176f1))
+* dummy change to correct github action ([#120](https://github.com/maxios/nestjs-outlook/issues/120)) ([20b4d83](https://github.com/maxios/nestjs-outlook/commit/20b4d831f2ccd8bf1b901c4e5b17c5c649352a6c))
+* email/calendar unsubscribing create orphaned renewal for the other ([#98](https://github.com/maxios/nestjs-outlook/issues/98)) ([c384dd9](https://github.com/maxios/nestjs-outlook/commit/c384dd9be4e5ea52a2f789b47399d9f22ee30f38))
+* external-user-id ([#33](https://github.com/maxios/nestjs-outlook/issues/33)) ([2914f3a](https://github.com/maxios/nestjs-outlook/commit/2914f3a4d4cb29fbcb2d0ca1fc49b8933a076efc))
+* finding active subscription while handling the missed notification lifecycle ([#78](https://github.com/maxios/nestjs-outlook/issues/78)) ([f19316b](https://github.com/maxios/nestjs-outlook/commit/f19316b764930f4633003852b37e4af9bdf6ed8b))
+* Fix basePath in webhook notifications ([f1b3ff7](https://github.com/maxios/nestjs-outlook/commit/f1b3ff7ae23d60543922911b06eb9c1114273268))
+* Fix webhooks sync ([#28](https://github.com/maxios/nestjs-outlook/issues/28)) ([c769ebd](https://github.com/maxios/nestjs-outlook/commit/c769ebd29e629f4b738a48344547745ff203312b))
+* Fix/early checkings ([#61](https://github.com/maxios/nestjs-outlook/issues/61)) ([7dccd6a](https://github.com/maxios/nestjs-outlook/commit/7dccd6a4013da6be6078a183a9fd8f86175f523f))
+* initial subscription caching race condition ([#96](https://github.com/maxios/nestjs-outlook/issues/96)) ([ca4c45b](https://github.com/maxios/nestjs-outlook/commit/ca4c45bc0c3c460ecb7ed0a00db35fa56608e181))
+* invalid refresh token ([#126](https://github.com/maxios/nestjs-outlook/issues/126)) ([a15ca97](https://github.com/maxios/nestjs-outlook/commit/a15ca971fd64fd9fbf2e617e24b842f0ee0e08c7))
+* Make basepath mandatory ([47e4ec9](https://github.com/maxios/nestjs-outlook/commit/47e4ec97fba1d8ac09c88202d474bfac60a99baf))
+* microsoft graph api batching requests with retry ([#84](https://github.com/maxios/nestjs-outlook/issues/84)) ([19f1000](https://github.com/maxios/nestjs-outlook/commit/19f10003b9720db8fe17eb537bd0fb8b1a91afa8))
+* minor bug in odata.type comparison ([#54](https://github.com/maxios/nestjs-outlook/issues/54)) ([617eba5](https://github.com/maxios/nestjs-outlook/commit/617eba5f8fd9cbb565be50e88072646519cdb253))
+* outlook sends notification with empty resources ([#51](https://github.com/maxios/nestjs-outlook/issues/51)) ([1e2aeb4](https://github.com/maxios/nestjs-outlook/commit/1e2aeb43a36d803902bb77d84ee50be7cb985b0f))
+* populate immutable id preference over all batching endpoints ([#111](https://github.com/maxios/nestjs-outlook/issues/111)) ([e1bcca6](https://github.com/maxios/nestjs-outlook/commit/e1bcca6654b4b6e57834438c70305d94543ccd1b))
+* recurrence minimal notification default handling ([#113](https://github.com/maxios/nestjs-outlook/issues/113)) ([32ab44c](https://github.com/maxios/nestjs-outlook/commit/32ab44cc7712f745c3f4b5b59c348c8ec9ac4033))
+* recurrent events fetching window ([#115](https://github.com/maxios/nestjs-outlook/issues/115)) ([6e5874d](https://github.com/maxios/nestjs-outlook/commit/6e5874d0b59ad42bb3365259b511d995f1da0217))
+* remove ungrauded endpoint ([#128](https://github.com/maxios/nestjs-outlook/issues/128)) ([b534b1e](https://github.com/maxios/nestjs-outlook/commit/b534b1e32983f95e01cf5e6b463a8a304741e733))
+* Remove unncessary defaults ([dea21c4](https://github.com/maxios/nestjs-outlook/commit/dea21c4e558f12988958bfae1ee577937bdeb558))
+* removing unused endpoint from the last patch ([#129](https://github.com/maxios/nestjs-outlook/issues/129)) ([5db33c2](https://github.com/maxios/nestjs-outlook/commit/5db33c202f424c0b0aa659a7265901c52ddf4e41))
+* reset subscirptions on fresh login ([#131](https://github.com/maxios/nestjs-outlook/issues/131)) ([7658a5c](https://github.com/maxios/nestjs-outlook/commit/7658a5ccb6a99052538011c234a1c4d475eb7da2))
+* scoping issues with mailboxSettings endpoint ([#145](https://github.com/maxios/nestjs-outlook/issues/145)) ([2e9e1fa](https://github.com/maxios/nestjs-outlook/commit/2e9e1fa32453d60bca318cfeba74f6e8be291c55))
+* some mailboxes not supporting REST API ([#122](https://github.com/maxios/nestjs-outlook/issues/122)) ([7bd8c7d](https://github.com/maxios/nestjs-outlook/commit/7bd8c7dee1d1c394ad5badd81b194a4733077092))
+* subscription decouple with auth ([#139](https://github.com/maxios/nestjs-outlook/issues/139)) ([8a62577](https://github.com/maxios/nestjs-outlook/commit/8a6257750b71fe3d30300d6cd0b630bd09d9c23a))
+* subscription lifecycle edge cases ([#124](https://github.com/maxios/nestjs-outlook/issues/124)) ([ecc48ef](https://github.com/maxios/nestjs-outlook/commit/ecc48ef0f42b3096b6fe8d7bf650542a56436a7a))
+* subscription passing errors to the host app ([#141](https://github.com/maxios/nestjs-outlook/issues/141)) ([f78e8e8](https://github.com/maxios/nestjs-outlook/commit/f78e8e896576e194c6e3af09517a60ce81d34714))
+* subscription validation failed 403 handling by marking user SUBSCRIPTION_FAILED ([#143](https://github.com/maxios/nestjs-outlook/issues/143)) ([8edca4a](https://github.com/maxios/nestjs-outlook/commit/8edca4ae4aa0792d8d5ee9cdf79a85f8022e6d5d))
+* **subscription:** add bulk delete for disconnect flow ([#150](https://github.com/maxios/nestjs-outlook/issues/150)) ([076ba59](https://github.com/maxios/nestjs-outlook/commit/076ba59da5a1574ffda212e40536db2844af5d7b))
+* using microsoft graph api handler unified for all api requests ([#99](https://github.com/maxios/nestjs-outlook/issues/99)) ([da34a85](https://github.com/maxios/nestjs-outlook/commit/da34a856b1d492e85b425023816816ec8bd8bb1c))
+* webhook authorization + testing ([#153](https://github.com/maxios/nestjs-outlook/issues/153)) ([7f4bf5f](https://github.com/maxios/nestjs-outlook/commit/7f4bf5ff917007a991aefe0f54c6cceb693e0de9))
+* webhook notification endpoint ([#94](https://github.com/maxios/nestjs-outlook/issues/94)) ([01144f1](https://github.com/maxios/nestjs-outlook/commit/01144f10a546144e973ed8f26e480ff543e40967))
+
 ## [9.0.1](https://github.com/checkfirst-ltd/nestjs-outlook/compare/v9.0.0...v9.0.1) (2026-06-18)
 
 
