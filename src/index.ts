@@ -51,3 +51,6 @@ export * from './repositories/outlook-webhook-subscription.repository';
 
 // Types
 export * from './types';
+
+// Standalone delta-accumulation library (framework-free)
+export * from './delta-sync-lib';
